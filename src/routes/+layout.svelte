@@ -1,0 +1,25 @@
+<script lang="ts">
+    import favicon from "$lib/assets/favicon.svg";
+
+    let { children } = $props();
+</script>
+
+<svelte:head>
+    <link rel="icon" href={favicon} />
+</svelte:head>
+
+{@render children()}
+
+<style>
+    :global {
+        body {
+            padding: 0;
+            margin: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    }
+</style>
