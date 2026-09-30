@@ -8,3 +8,5 @@ Man kan godt bygge den samme ting bare med en `index.html` og noget JavaScript
 
 
 # Brug af AI
+Jeg har kun brugt AI for at laere om concepter som jeg vidste ikke og "best practices"
+Ingen kode var genereret med AI

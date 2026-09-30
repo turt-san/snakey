@@ -2,7 +2,7 @@
     import type { NumericRange } from "@sveltejs/kit";
     import { onMount } from "svelte";
 
-    class Spaces {
+    class FreeSpaces {
         array: Array<boolean>;
         size: number;
 
@@ -11,12 +11,34 @@
             this.size = size;
         }
 
+        empty() {
+            this.array.fill(false);
+        }
+
+        indexFromXY(x: number, y: number) {
+            if (x + 1 > this.size || y + 1 > this.size) {
+                throw new Error("Index out of bounds");
+            }
+            return x + y * this.size;
+        }
+
+        mask(x: number, y: number) {
+            const index = this.indexFromXY(x, y);
+            this.array[index] = true;
+        }
+
+        isHit(x: number, y: number) {
+            const index = this.indexFromXY(x, y);
+            return this.array[index];
+        }
+
         x(i: number) {
-            return i % gridSize;
+            return i % this.size;
         }
 
         y(i: number) {
-            return (i / gridSize) | 0;
+            // coerces the float into an int, Math.trunc() can also be used
+            return (i / this.size) | 0;
         }
 
         xy(i: number) {
@@ -39,6 +61,7 @@
         }
     }
 
+    // simple one way linked list
     class SnakeNode {
         x: number;
         y: number;
@@ -54,27 +77,24 @@
     let canvas: HTMLCanvasElement;
 
     const canvasSize = 600;
-
     const gridSize = 12;
-
     const ratio = canvasSize / gridSize;
+    const interval = 1000;
 
-    const head = new SnakeNode(1, 2);
-    const xs = new Int32Array([1]);
-    const ys = new Int32Array([2]);
+    const head = new SnakeNode(5, 5);
+    head.next = new SnakeNode(4, 5);
+    head.next.next = new SnakeNode(3, 5);
 
-    const one = new Spaces(gridSize);
-    one.array[12] = true;
+    const freeSpaces = new FreeSpaces(gridSize);
 
     let loopId: number;
 
-    const squareSize = 48;
+    const squareSize = ratio * 0.9;
 
     let direction = new Vec2(1, 0);
 
-    function setDirection(event: KeyboardEvent) {
-        event.preventDefault();
-        console.log(event);
+    function keyListener(event: KeyboardEvent) {
+        // event.preventDefault();
         switch (event.code) {
             case "ArrowUp":
             case "KeyW":
@@ -96,11 +116,12 @@
     }
 
     function move() {
-        const x = head.x;
-        const y = head.y;
+        freeSpaces.empty();
+        let x = head.x;
+        let y = head.y;
 
-        const nx = x + direction.x;
-        const ny = y + -direction.y;
+        let nx = x + direction.x;
+        let ny = y + -direction.y;
 
         if (nx > gridSize - 1) {
             head.x = 0;
@@ -117,6 +138,22 @@
         } else {
             head.y = ny;
         }
+
+        let next = head.next;
+        while (next) {
+            nx = next.x;
+            ny = next.y;
+            next.x = x;
+            next.y = y;
+            freeSpaces.mask(x, y);
+            x = nx;
+            y = ny;
+            next = next.next;
+        }
+
+        if (freeSpaces.isHit(head.x, head.y)) {
+            console.log("DEATH");
+        }
     }
 
     // variable canvas only gets bound once the HTML loads, using it before will give you undefined,
@@ -124,22 +161,25 @@
     onMount(() => {
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-            throw new Error("Canvas is null or context is unavailable");
+            throw new Error("Canvas doesn't exist or context is unavailable");
         }
 
-        document.addEventListener("keydown", setDirection);
+        document.addEventListener("keydown", keyListener);
 
         function drawSquare(x: number, y: number) {
             if (!ctx) return;
-            ctx.fillRect(
+            ctx.beginPath();
+            ctx.rect(
                 x * ratio + ratio / 2 - squareSize / 2,
                 y * ratio + ratio / 2 - squareSize / 2,
                 squareSize,
                 squareSize,
             );
+            ctx.fill();
         }
 
         function setup() {}
+
         function main() {
             ctx.fillStyle = "green";
             for (let i = 0; i < gridSize; i++) {
@@ -149,13 +189,19 @@
             }
 
             move();
+
             ctx.fillStyle = "red";
-
             drawSquare(head.x, head.y);
+            let next = head.next;
+            while (next) {
+                drawSquare(next.x, next.y);
+                next = next.next;
+            }
 
-            one.array.forEach((b, i) => {
+            ctx.fillStyle = "orange";
+            freeSpaces.array.forEach((b, i) => {
                 if (b) {
-                    drawSquare(...one.xy(i));
+                    drawSquare(...freeSpaces.xy(i));
                 }
             });
         }
@@ -163,7 +209,7 @@
         main();
         loopId = setInterval(() => {
             main();
-        }, 1000);
+        }, interval);
     });
 
     // when running the vite development server, HMR is enabled, meaning every time you save a file
@@ -171,7 +217,7 @@
     // so they don't persist through reloads
     if (import.meta.hot) {
         import.meta.hot.dispose(() => {
-            document.removeEventListener("keydown", setDirection);
+            document.removeEventListener("keydown", keyListener);
             if (loopId) {
                 clearInterval(loopId);
             }
