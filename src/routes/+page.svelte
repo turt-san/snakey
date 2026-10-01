@@ -156,27 +156,50 @@
         }
     }
 
+    function drawSquare(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.beginPath();
+        ctx.rect(
+            x * ratio + ratio / 2 - squareSize / 2,
+            y * ratio + ratio / 2 - squareSize / 2,
+            squareSize,
+            squareSize,
+        );
+        ctx.fill();
+    }
+
+    function drawApple(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.beginPath();
+        ctx.roundRect(
+            x * ratio + ratio / 2 - squareSize / 2,
+            y * ratio + ratio / 2 - squareSize / 2,
+            squareSize,
+            squareSize,
+            20,
+        );
+        ctx.fill();
+    }
+
+    function genApple(ctx) {
+        const ar: number[] = [];
+        freeSpaces.array.forEach((b, i) => {
+            if (!b) {
+                ar.push(i);
+            }
+        });
+        const index = Math.floor(Math.random() * ar.length);
+        const r = ar[index];
+        ctx.fillStyle = "blue";
+        drawApple(ctx, ...freeSpaces.xy(r));
+    }
+
     // variable canvas only gets bound once the HTML loads, using it before will give you undefined,
     // which is why we have to wait for the html to "mount"
     onMount(() => {
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-            throw new Error("Canvas doesn't exist or context is unavailable");
-        }
+        if (!canvas.getContext("2d"))
+            throw new Error("Canvas is either undefined or context is null");
+        const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 
         document.addEventListener("keydown", keyListener);
-
-        function drawSquare(x: number, y: number) {
-            if (!ctx) return;
-            ctx.beginPath();
-            ctx.rect(
-                x * ratio + ratio / 2 - squareSize / 2,
-                y * ratio + ratio / 2 - squareSize / 2,
-                squareSize,
-                squareSize,
-            );
-            ctx.fill();
-        }
 
         function setup() {}
 
@@ -184,24 +207,25 @@
             ctx.fillStyle = "green";
             for (let i = 0; i < gridSize; i++) {
                 for (let j = 0; j < gridSize; j++) {
-                    drawSquare(i, j);
+                    drawSquare(ctx, i, j);
                 }
             }
 
             move();
+            genApple(ctx);
 
             ctx.fillStyle = "red";
-            drawSquare(head.x, head.y);
+            drawSquare(ctx, head.x, head.y);
             let next = head.next;
             while (next) {
-                drawSquare(next.x, next.y);
+                drawSquare(ctx, next.x, next.y);
                 next = next.next;
             }
 
             ctx.fillStyle = "orange";
             freeSpaces.array.forEach((b, i) => {
                 if (b) {
-                    drawSquare(...freeSpaces.xy(i));
+                    drawSquare(ctx, ...freeSpaces.xy(i));
                 }
             });
         }
