@@ -151,8 +151,9 @@
             head.y = ny;
         }
 
-        apples.forEach((vec) => {
+        apples.forEach((vec, i) => {
             if (vec.x === head.x && vec.y === head.y) {
+                apples.splice(i, 1);
                 growSize += 1;
             }
             freeSpaces.mask(...vec.xy, 3);
