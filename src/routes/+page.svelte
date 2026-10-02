@@ -2,8 +2,10 @@
     import type { NumericRange } from "@sveltejs/kit";
     import { onMount } from "svelte";
 
+    // Uint8Array is more efficient, because it guarantees each member ofthe array is exactly 1 byte
+    // with how JavaScript works, a boolean can take up to 4 bytes
     class FreeSpaces {
-        array: Array<boolean>;
+        array: Uint8Array;
         size: number;
 
         constructor(size: number) {
@@ -12,7 +14,7 @@
         }
 
         empty() {
-            this.array.fill(false);
+            this.array.fill(0);
         }
 
         indexFromXY(x: number, y: number) {
@@ -22,9 +24,9 @@
             return x + y * this.size;
         }
 
-        mask(x: number, y: number) {
+        mask(x: number, y: number, mode: number = 1) {
             const index = this.indexFromXY(x, y);
-            this.array[index] = true;
+            this.array[index] = mode;
         }
 
         isHit(x: number, y: number) {
@@ -37,7 +39,7 @@
         }
 
         y(i: number) {
-            // coerces the float into an int, Math.trunc() can also be used
+            // bitwise or coerces the float into an int, Math.trunc() can also be used
             return (i / this.size) | 0;
         }
 
@@ -55,9 +57,13 @@
             this.y = y;
         }
 
-        xy(x: number, y: number) {
-            this.x = x;
-            this.y = y;
+        get xy() {
+            return [this.x, this.y];
+        }
+
+        set xy(ar: [number, number]) {
+            this.x = ar[0];
+            this.y = ar[1];
         }
     }
 
@@ -79,38 +85,44 @@
     const canvasSize = 600;
     const gridSize = 12;
     const ratio = canvasSize / gridSize;
-    const interval = 1000;
+    const loopInterval = 1000;
+
+    const freeSpaces = new FreeSpaces(gridSize);
 
     const head = new SnakeNode(5, 5);
     head.next = new SnakeNode(4, 5);
     head.next.next = new SnakeNode(3, 5);
 
-    const freeSpaces = new FreeSpaces(gridSize);
-
     let loopId: number;
+
+    let growSize = 0;
+
+    const apples: Vec2[] = [];
 
     const squareSize = ratio * 0.9;
 
     let direction = new Vec2(1, 0);
+
+    let appleRequired = true;
 
     function keyListener(event: KeyboardEvent) {
         // event.preventDefault();
         switch (event.code) {
             case "ArrowUp":
             case "KeyW":
-                direction.xy(0, 1);
+                direction.xy = [0, 1];
                 break;
             case "ArrowLeft":
             case "KeyA":
-                direction.xy(-1, 0);
+                direction.xy = [-1, 0];
                 break;
             case "ArrowDown":
             case "KeyS":
-                direction.xy(0, -1);
+                direction.xy = [0, -1];
                 break;
             case "ArrowRight":
             case "KeyD":
-                direction.xy(1, 0);
+                direction.xy = [1, 0];
                 break;
         }
     }
@@ -139,6 +151,10 @@
             head.y = ny;
         }
 
+        apples.forEach((vec) => {
+            freeSpaces.mask(...vec.xy, 3);
+        });
+
         let next = head.next;
         while (next) {
             nx = next.x;
@@ -151,9 +167,16 @@
             next = next.next;
         }
 
-        if (freeSpaces.isHit(head.x, head.y)) {
-            console.log("DEATH");
+        switch (freeSpaces.isHit(head.x, head.y)) {
+            case 1:
+                console.log("DEATH");
+                break;
+            case 3:
+                console.log("apple");
+                break;
         }
+
+        freeSpaces.mask(head.x, head.y, 2);
     }
 
     function drawSquare(ctx: CanvasRenderingContext2D, x: number, y: number) {
@@ -177,19 +200,25 @@
             20,
         );
         ctx.fill();
+        console.log("drawn apple");
     }
 
-    function genApple(ctx) {
-        const ar: number[] = [];
-        freeSpaces.array.forEach((b, i) => {
-            if (!b) {
-                ar.push(i);
-            }
-        });
-        const index = Math.floor(Math.random() * ar.length);
-        const r = ar[index];
-        ctx.fillStyle = "blue";
-        drawApple(ctx, ...freeSpaces.xy(r));
+    function genApple() {
+        if (appleRequired) {
+            const ar: number[] = [];
+            freeSpaces.array.forEach((b, i) => {
+                if (b === 0) {
+                    ar.push(i);
+                }
+            });
+            const index = Math.floor(Math.random() * ar.length);
+            const r = ar[index];
+            apples.push(new Vec2(...freeSpaces.xy(r)));
+        }
+    }
+
+    function gameOver(ctx: CanvasRenderingContext2D) {
+        ctx;
     }
 
     // variable canvas only gets bound once the HTML loads, using it before will give you undefined,
@@ -204,28 +233,29 @@
         function setup() {}
 
         function main() {
-            ctx.fillStyle = "green";
-            for (let i = 0; i < gridSize; i++) {
-                for (let j = 0; j < gridSize; j++) {
-                    drawSquare(ctx, i, j);
-                }
-            }
-
             move();
-            genApple(ctx);
+            genApple();
 
-            ctx.fillStyle = "red";
             drawSquare(ctx, head.x, head.y);
-            let next = head.next;
-            while (next) {
-                drawSquare(ctx, next.x, next.y);
-                next = next.next;
-            }
 
-            ctx.fillStyle = "orange";
-            freeSpaces.array.forEach((b, i) => {
-                if (b) {
-                    drawSquare(ctx, ...freeSpaces.xy(i));
+            freeSpaces.array.forEach((n, i) => {
+                switch (n) {
+                    case 0:
+                        ctx.fillStyle = "green";
+                        drawSquare(ctx, ...freeSpaces.xy(i));
+                        break;
+                    case 1:
+                        ctx.fillStyle = "orange";
+                        drawSquare(ctx, ...freeSpaces.xy(i));
+                        break;
+                    case 2:
+                        ctx.fillStyle = "#24f404";
+                        drawSquare(ctx, ...freeSpaces.xy(i));
+                        break;
+                    case 3:
+                        ctx.fillStyle = "blue";
+                        drawApple(ctx, ...freeSpaces.xy(i));
+                        break;
                 }
             });
         }
@@ -233,7 +263,7 @@
         main();
         loopId = setInterval(() => {
             main();
-        }, interval);
+        }, loopInterval);
     });
 
     // when running the vite development server, HMR is enabled, meaning every time you save a file
