@@ -43,7 +43,7 @@
             return (i / this.size) | 0;
         }
 
-        xy(i: number) {
+        xy(i: number): [number, number] {
             return [this.x(i), this.y(i)];
         }
     }
@@ -152,6 +152,9 @@
         }
 
         apples.forEach((vec) => {
+            if (vec.x === head.x && vec.y === head.y) {
+                growSize += 1;
+            }
             freeSpaces.mask(...vec.xy, 3);
         });
 
@@ -164,7 +167,14 @@
             freeSpaces.mask(x, y);
             x = nx;
             y = ny;
-            next = next.next;
+            if (next.next === null && growSize > 0) {
+                const newNode = new SnakeNode(x, y);
+                next.next = newNode;
+                next = next.next;
+                growSize -= 1;
+            } else {
+                next = next.next;
+            }
         }
 
         switch (freeSpaces.isHit(head.x, head.y)) {
