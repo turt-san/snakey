@@ -97,6 +97,8 @@
 
     let growSize = 0;
 
+    let score = $state(0);
+
     const apples: Vec2[] = [];
 
     const squareSize = ratio * 0.9;
@@ -104,6 +106,8 @@
     let direction = new Vec2(1, 0);
 
     let appleRequired = true;
+
+    let death = false;
 
     function keyListener(event: KeyboardEvent) {
         // event.preventDefault();
@@ -155,6 +159,7 @@
             if (vec.x === head.x && vec.y === head.y) {
                 apples.splice(i, 1);
                 growSize += 1;
+                score += 1;
             }
             freeSpaces.mask(...vec.xy, 3);
         });
@@ -180,7 +185,7 @@
 
         switch (freeSpaces.isHit(head.x, head.y)) {
             case 1:
-                console.log("DEATH");
+                death = true;
                 break;
             case 3:
                 console.log("apple");
@@ -229,7 +234,8 @@
     }
 
     function gameOver(ctx: CanvasRenderingContext2D) {
-        ctx;
+        ctx.fillStyle = "magenta";
+        ctx.fillRect(0, 0, canvasSize, canvasSize);
     }
 
     // variable canvas only gets bound once the HTML loads, using it before will give you undefined,
@@ -245,7 +251,14 @@
 
         function main() {
             move();
-            genApple();
+            if (death) {
+                gameOver(ctx);
+                clearInterval(loopId);
+                return;
+            }
+            if (apples.length < 1) {
+                genApple();
+            }
 
             drawSquare(ctx, head.x, head.y);
 
@@ -264,6 +277,8 @@
                         drawSquare(ctx, ...freeSpaces.xy(i));
                         break;
                     case 3:
+                        ctx.fillStyle = "green";
+                        drawSquare(ctx, ...freeSpaces.xy(i));
                         ctx.fillStyle = "blue";
                         drawApple(ctx, ...freeSpaces.xy(i));
                         break;
@@ -290,6 +305,7 @@
     }
 </script>
 
+<h1 id="counter">{score}</h1>
 <canvas id="game" bind:this={canvas} width={canvasSize} height={canvasSize}
 ></canvas>
 
