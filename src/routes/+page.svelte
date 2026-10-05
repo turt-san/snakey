@@ -234,8 +234,14 @@
     }
 
     function gameOver(ctx: CanvasRenderingContext2D) {
-        ctx.fillStyle = "magenta";
-        ctx.fillRect(0, 0, canvasSize, canvasSize);
+        const txt = "Game Over";
+        ctx.fillStyle = "red";
+        ctx.font = "48px monospace";
+        ctx.fillText(
+            txt,
+            canvasSize / 2 - ctx.measureText(txt).width / 2,
+            canvasSize / 2,
+        );
     }
 
     // variable canvas only gets bound once the HTML loads, using it before will give you undefined,
