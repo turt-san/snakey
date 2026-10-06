@@ -1,5 +1,4 @@
 <script lang="ts">
-    import type { NumericRange } from "@sveltejs/kit";
     import { onMount } from "svelte";
 
     // Uint8Array is more efficient, because it guarantees each member ofthe array is exactly 1 byte
@@ -9,7 +8,7 @@
         size: number;
 
         constructor(size: number) {
-            this.array = new Array(size * size).fill(false);
+            this.array = new Uint8Array(size * size).fill(0);
             this.size = size;
         }
 
@@ -57,6 +56,10 @@
             this.y = y;
         }
 
+        clone() {
+            return new Vec2(this.x, this.y);
+        }
+
         get xy() {
             return [this.x, this.y];
         }
@@ -85,7 +88,7 @@
     const canvasSize = 600;
     const gridSize = 12;
     const ratio = canvasSize / gridSize;
-    const loopInterval = 1000;
+    const loopInterval = 500;
 
     const freeSpaces = new FreeSpaces(gridSize);
 
@@ -104,13 +107,15 @@
     const squareSize = ratio * 0.9;
 
     let direction = new Vec2(1, 0);
-
-    let appleRequired = true;
+    let lastDirection = new Vec2(1, 0);
 
     let death = false;
+    let dash = false;
+    let shifting = false;
 
     function keyListener(event: KeyboardEvent) {
         // event.preventDefault();
+        console.log(event);
         switch (event.code) {
             case "ArrowUp":
             case "KeyW":
@@ -128,16 +133,33 @@
             case "KeyD":
                 direction.xy = [1, 0];
                 break;
+            case "Shift":
+                shifting = !shifting;
+                break;
         }
     }
 
     function move() {
         freeSpaces.empty();
+
         let x = head.x;
         let y = head.y;
 
         let nx = x + direction.x;
         let ny = y + -direction.y;
+
+        // prevents player from turning into their own body and killing themselves
+        if (head.next) {
+            if (nx === head.next.x && ny === head.next.y) {
+                console.log("near  death");
+                console.log(direction, lastDirection);
+                direction.xy = lastDirection.xy;
+                nx = x + direction.x;
+                ny = y + -direction.y;
+            }
+        }
+
+        lastDirection.xy = direction.xy;
 
         if (nx > gridSize - 1) {
             head.x = 0;
@@ -160,6 +182,7 @@
                 apples.splice(i, 1);
                 growSize += 1;
                 score += 1;
+                console.log(apples.length);
             }
             freeSpaces.mask(...vec.xy, 3);
         });
@@ -211,8 +234,8 @@
         ctx.roundRect(
             x * ratio + ratio / 2 - squareSize / 2,
             y * ratio + ratio / 2 - squareSize / 2,
-            squareSize,
-            squareSize,
+            squareSize - 2,
+            squareSize - 2,
             20,
         );
         ctx.fill();
@@ -220,17 +243,15 @@
     }
 
     function genApple() {
-        if (appleRequired) {
-            const ar: number[] = [];
-            freeSpaces.array.forEach((b, i) => {
-                if (b === 0) {
-                    ar.push(i);
-                }
-            });
-            const index = Math.floor(Math.random() * ar.length);
-            const r = ar[index];
-            apples.push(new Vec2(...freeSpaces.xy(r)));
-        }
+        const ar: number[] = [];
+        freeSpaces.array.forEach((b, i) => {
+            if (b === 0) {
+                ar.push(i);
+            }
+        });
+        const index = Math.floor(Math.random() * ar.length);
+        const r = ar[index];
+        apples.push(new Vec2(...freeSpaces.xy(r)));
     }
 
     function gameOver(ctx: CanvasRenderingContext2D) {
@@ -262,6 +283,7 @@
                 clearInterval(loopId);
                 return;
             }
+            console.log("apples in loop:", apples.length);
             if (apples.length < 1) {
                 genApple();
             }
@@ -285,7 +307,7 @@
                     case 3:
                         ctx.fillStyle = "green";
                         drawSquare(ctx, ...freeSpaces.xy(i));
-                        ctx.fillStyle = "blue";
+                        ctx.fillStyle = "red";
                         drawApple(ctx, ...freeSpaces.xy(i));
                         break;
                 }
